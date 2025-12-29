@@ -1,7 +1,10 @@
 [project]
 name = "spark-stream-processing"
 version = "0.1.0"
-description = "Add your description here"
+description = "Spark Stream Processing với kiến trúc DDD - xử lý dữ liệu từ Kafka và ghi vào ClickHouse"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pyspark>=3.5.0",
+    "clickhouse-driver>=0.2.6",
+]
