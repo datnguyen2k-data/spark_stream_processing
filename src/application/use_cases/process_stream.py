@@ -1,46 +1,42 @@
-"""Use case để xử lý stream từ Kafka và ghi vào ClickHouse."""
-from typing import Protocol
+"""Use case để xử lý stream từ source và ghi vào sinks."""
+from typing import List
 
 from ...domain.entities.stream_event import StreamEvent
 from ...domain.services.event_processor import EventProcessor
+from ...domain.ports.source_connector import SourceConnector
+from ...domain.ports.sink_connector import SinkConnector
 from ...domain.value_objects.processing_config import ProcessingConfig
 
 
-class StreamReader(Protocol):
-    """Protocol cho stream reader."""
-    def read_stream(self, config: ProcessingConfig):
-        """Đọc stream từ Kafka."""
-        ...
-
-
-class StreamWriter(Protocol):
-    """Protocol cho stream writer."""
-    def write_events(self, events: list[StreamEvent]) -> None:
-        """Ghi events vào ClickHouse."""
-        ...
-
-
 class ProcessStreamUseCase:
-    """Use case xử lý stream từ Kafka và ghi vào ClickHouse."""
+    """Use case xử lý stream từ source và ghi vào sinks."""
     
     def __init__(
         self,
-        stream_reader: StreamReader,
-        stream_writer: StreamWriter,
+        source_connector: SourceConnector,
+        sink_connectors: List[SinkConnector],
         event_processor: EventProcessor,
         config: ProcessingConfig
     ):
-        self.stream_reader = stream_reader
-        self.stream_writer = stream_writer
+        """Khởi tạo use case.
+        
+        Args:
+            source_connector: Source connector để đọc stream
+            sink_connectors: Danh sách sink connectors để ghi dữ liệu
+            event_processor: Event processor để xử lý events
+            config: ProcessingConfig
+        """
+        self.source_connector = source_connector
+        self.sink_connectors = sink_connectors
         self.event_processor = event_processor
         self.config = config
     
     def execute(self) -> None:
         """Thực thi use case."""
-        # Đọc stream từ Kafka
-        stream_df = self.stream_reader.read_stream(self.config)
+        # Đọc stream từ source
+        stream_df = self.source_connector.read_stream(self.config)
         
-        # Xử lý và ghi vào ClickHouse
+        # Xử lý và ghi vào sinks
         def process_batch(batch_df, batch_id):
             """Xử lý từng batch."""
             # Convert Spark DataFrame thành list of events
@@ -79,9 +75,17 @@ class ProcessStreamUseCase:
             # Xử lý events qua domain service
             processed_events = self.event_processor.process_events(events)
             
-            # Ghi vào ClickHouse
+            # Ghi vào tất cả các sinks đã cấu hình
             if processed_events:
-                self.stream_writer.write_events(processed_events)
+                for sink_connector in self.sink_connectors:
+                    try:
+                        sink_connector.write_events(processed_events)
+                    except Exception as e:
+                        print(f"Lỗi khi ghi vào sink {type(sink_connector).__name__}: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        # Tiếp tục với các sink khác
+                        continue
         
         # Áp dụng foreachBatch để xử lý từng batch
         query = (
@@ -94,5 +98,11 @@ class ProcessStreamUseCase:
         )
         
         # Chờ streaming query
-        query.awaitTermination()
+        try:
+            query.awaitTermination()
+        finally:
+            # Đóng tất cả connectors khi kết thúc
+            self.source_connector.close()
+            for sink_connector in self.sink_connectors:
+                sink_connector.close()
 

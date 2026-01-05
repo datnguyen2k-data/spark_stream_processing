@@ -1,2 +1,12 @@
+# Python dependencies
+pydantic-settings>=2.8.0
+pydantic>=2.8.0
 
-
+# Spark dependencies (cần cài đặt riêng hoặc qua Spark packages)
+# pyspark>=3.5.0
+# 
+# Các Spark connectors đã được cài đặt trong Docker image:
+# - ClickHouse Spark Runtime (clickhouse-spark-runtime-3.5_2.12-0.9.0.jar)
+# - Iceberg Spark Runtime (iceberg-spark-runtime-3.5_2.12-1.9.2.jar)
+# - Spark Kafka connector (spark-sql-kafka-0-10_2.12-3.5.3.jar)
+# - PostgreSQL JDBC driver (cần thêm vào Docker image)
