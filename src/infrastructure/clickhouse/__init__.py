@@ -1,2 +1,0 @@
-"""ClickHouse infrastructure."""
-
